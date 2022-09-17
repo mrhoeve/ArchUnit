@@ -20,6 +20,7 @@ dependencies {
         exclude module: 'assertj-core'
         exclude module: 'guava'
     }
+    testImplementation dependency.plantUml
 }
 
 shadowJar {

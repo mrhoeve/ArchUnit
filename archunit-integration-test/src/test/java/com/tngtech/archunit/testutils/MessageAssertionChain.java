@@ -250,6 +250,23 @@ public class MessageAssertionChain {
                     return this;
                 }
 
+                Builder contains(Iterable<ExpectedRelation> relations) {
+                    for (ExpectedRelation detail : relations) {
+                        detail.associateLines(new ExpectedRelation.LineAssociation() {
+                            @Override
+                            public void associateIfPatternMatches(String pattern) {
+                                matchesLine(pattern);
+                            }
+
+                            @Override
+                            public void associateIfStringIsContained(String string) {
+                                containsLine(string);
+                            }
+                        });
+                    }
+                    return this;
+                }
+
                 Result build(List<String> lines) {
                     boolean matches = true;
                     List<String> remainingLines = new ArrayList<>(lines);

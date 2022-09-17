@@ -105,6 +105,11 @@ public class ExpectedDependency implements ExpectedRelation {
     }
 
     @Override
+    public void addTo(HandlingAssertion assertion) {
+        assertion.byDependency(this);
+    }
+
+    @Override
     public void associateLines(LineAssociation association) {
         association.associateIfPatternMatches(dependencyPattern);
     }

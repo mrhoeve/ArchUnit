@@ -139,6 +139,7 @@ import com.tngtech.archunit.example.plantuml.importer.ProductImport;
 import com.tngtech.archunit.example.plantuml.order.Order;
 import com.tngtech.archunit.example.plantuml.product.Product;
 import com.tngtech.archunit.exampletest.ControllerRulesTest;
+import com.tngtech.archunit.exampletest.ModulesTest;
 import com.tngtech.archunit.exampletest.SecurityTest;
 import com.tngtech.archunit.testutil.TransientCopyRule;
 import com.tngtech.archunit.testutils.CyclicErrorMatcher;
@@ -146,6 +147,7 @@ import com.tngtech.archunit.testutils.ExpectedClass;
 import com.tngtech.archunit.testutils.ExpectedConstructor;
 import com.tngtech.archunit.testutils.ExpectedField;
 import com.tngtech.archunit.testutils.ExpectedMethod;
+import com.tngtech.archunit.testutils.ExpectedModuleDependency;
 import com.tngtech.archunit.testutils.ExpectedTestFailures;
 import com.tngtech.archunit.testutils.MessageAssertionChain;
 import com.tngtech.archunit.testutils.ResultStoringExtension;
@@ -1127,6 +1129,64 @@ class ExamplesIntegrationTest {
     }
 
     @TestFactory
+    Stream<DynamicTest> ModulesTest() {
+        ExpectedTestFailures expectedFailures = ExpectedTestFailures
+                .forTests(ModulesTest.class);
+
+        Consumer<ExpectedTestFailures> expectModulesViolations =
+                expected -> expected
+                        .by(ExpectedModuleDependency.uncontainedFrom(AddressController.class).to(AbstractController.class))
+                        .by(ExpectedModuleDependency.uncontainedFrom(AddressController.class).to(AbstractController.class))
+
+                        .by(ExpectedModuleDependency.fromModule("Address").toModule("Catalog")
+                                .including(field(Address.class, "productCatalog").ofType(ProductCatalog.class)))
+
+                        .by(ExpectedModuleDependency.fromModule("Product").toModule("Customer")
+                                .including(field(Product.class, "customer").ofType(Customer.class)))
+
+                        .by(ExpectedModuleDependency.fromModule("Product").toModule("Order")
+                                .including(method(Product.class, "getOrder").withReturnType(Order.class)))
+
+                        .by(ExpectedModuleDependency.fromModule("Customer").toModule("Order")
+                                .including(method(Customer.class, "addOrder").withParameter(Order.class)))
+
+                        .by(ExpectedModuleDependency.fromModule("Catalog").toModule("Order")
+                                .including(callFromMethod(ProductCatalog.class, "gonnaDoSomethingIllegalWithOrder")
+                                        .toConstructor(Order.class).inLine(12).asDependency())
+                                .including(callFromMethod(ProductCatalog.class, "gonnaDoSomethingIllegalWithOrder")
+                                        .toMethod(Order.class, "addProducts", Set.class).inLine(16).asDependency()))
+
+                        .by(ExpectedModuleDependency.fromModule("Importer").toModule("Customer")
+                                .including(callFromMethod(ProductImport.class, "getCustomer")
+                                        .toConstructor(Customer.class).inLine(14).asDependency())
+                                .including(method(ProductImport.class, "getCustomer")
+                                        .withReturnType(Customer.class)))
+
+                        .by(ExpectedModuleDependency.fromModule("Order").toModule("Address")
+                                .including(method(Order.class, "report")
+                                        .withParameter(Address.class)));
+
+        expectedFailures = expectedFailures
+                .ofRule(String.format("modules defined by annotation @%s should respect their declared dependencies within ..example..",
+                        Module.class.getSimpleName()));
+        expectModulesViolations.accept(expectedFailures);
+
+        expectedFailures = expectedFailures
+                .ofRule(String.format("modules defined by root classes annotated with @%s ", Module.class.getSimpleName())
+                        + String.format("deriving module from root class by annotation @%s ", Module.class.getSimpleName())
+                        + "should respect their declared dependencies within ..example..");
+        expectModulesViolations.accept(expectedFailures);
+
+        expectedFailures = expectedFailures
+                .ofRule(String.format("modules defined by root classes with annotation @%s ", Module.class.getSimpleName())
+                        + String.format("deriving module from @%s(name) ", Module.class.getSimpleName())
+                        + "should respect their declared dependencies within ..example..");
+        expectModulesViolations.accept(expectedFailures);
+
+        return expectedFailures.toDynamicTests();
+    }
+
+    @TestFactory
     Stream<DynamicTest> NamingConventionTest() {
         return ExpectedTestFailures
                 .forTests(
@@ -1164,6 +1224,7 @@ class ExamplesIntegrationTest {
 
                 .ofRule("classes that have simple name containing 'Controller' should reside in a package '..controller..'")
                 .by(javaClass(AbstractController.class).notResidingIn("..controller.."))
+                .by(javaClass(AddressController.class).notResidingIn("..controller.."))
                 .by(javaClass(AnnotatedController.class).notResidingIn("..controller.."))
                 .by(javaClass(InheritedControllerImpl.class).notResidingIn("..controller.."))
                 .by(javaClass(MyController.class).notResidingIn("..controller.."))
@@ -1212,6 +1273,11 @@ class ExamplesIntegrationTest {
                         ProductCatalog.class.getName(), Product.class.getName(), Order.class.getName()))
                 .by(field(Address.class, "productCatalog")
                         .ofType(ProductCatalog.class))
+                .by(inheritanceFrom(AddressController.class)
+                        .extending(AbstractController.class))
+                .by(callFromConstructor(AddressController.class)
+                        .toConstructor(AbstractController.class)
+                        .inLine(6).asDependency())
                 .by(field(Product.class, "customer")
                         .ofType(Customer.class))
                 .by(method(Customer.class, "addOrder")

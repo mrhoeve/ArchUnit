@@ -162,6 +162,11 @@ public abstract class ExpectedAccess implements ExpectedRelation {
                     .toFieldDeclaredIn(getTarget().getDeclaringClass())
                     .inLineNumber(getLineNumber());
         }
+
+        @Override
+        public void addTo(HandlingAssertion assertion) {
+            assertion.byFieldAccess(this);
+        }
     }
 
     public static class ExpectedCall extends ExpectedAccess {
@@ -178,6 +183,15 @@ public abstract class ExpectedAccess implements ExpectedRelation {
             return ExpectedDependency.accessFrom(getOrigin().getDeclaringClass())
                     .toCodeUnitDeclaredIn(getTarget().getDeclaringClass())
                     .inLineNumber(getLineNumber());
+        }
+
+        @Override
+        public void addTo(HandlingAssertion assertion) {
+            if (isToConstructor()) {
+                assertion.byConstructorCall(this);
+            } else {
+                assertion.byMethodCall(this);
+            }
         }
     }
 }
