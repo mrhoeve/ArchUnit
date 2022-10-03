@@ -30,20 +30,16 @@ public class ArchRuleCheckAssertion {
     }
 
     public ArchRuleCheckAssertion hasViolationMatching(String regex) {
-        for (String detail : evaluationResult.getFailureReport().getDetails()) {
-            if (detail.matches(regex)) {
-                return this;
-            }
-        }
-        throw new AssertionError(String.format("No violation matches '%s'", regex));
+        assertThat(evaluationResult.getFailureReport().getDetails())
+                .as("violation details (should match '%s')", regex)
+                .anyMatch(detail -> detail.matches(regex));
+        return this;
     }
 
     public ArchRuleCheckAssertion hasNoViolationMatching(String regex) {
-        for (String detail : evaluationResult.getFailureReport().getDetails()) {
-            if (detail.matches(regex)) {
-                throw new AssertionError(String.format("Violation matches '%s'", regex));
-            }
-        }
+        assertThat(evaluationResult.getFailureReport().getDetails())
+                .as("violation details (should not match '%s')", regex)
+                .noneMatch(detail -> detail.matches(regex));
         return this;
     }
 
