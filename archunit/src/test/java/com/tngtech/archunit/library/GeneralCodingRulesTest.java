@@ -12,7 +12,9 @@ import com.tngtech.archunit.library.testclasses.packages.incorrect.wrongsubdir.d
 import com.tngtech.archunit.library.testclasses.packages.incorrect.wrongsubdir.defaultsuffix.subdir.ImplementationClassWithWrongTestClassPackageTest;
 import org.junit.Test;
 
+import static com.tngtech.archunit.core.domain.JavaConstructor.CONSTRUCTOR_NAME;
 import static com.tngtech.archunit.library.GeneralCodingRules.ASSERTIONS_SHOULD_HAVE_DETAIL_MESSAGE;
+import static com.tngtech.archunit.library.GeneralCodingRules.DEPRECATED_API_SHOULD_NOT_BE_USED;
 import static com.tngtech.archunit.library.GeneralCodingRules.testClassesShouldResideInTheSamePackageAsImplementation;
 import static com.tngtech.archunit.testutil.Assertions.assertThatRule;
 import static java.util.regex.Pattern.quote;
@@ -114,5 +116,54 @@ public class GeneralCodingRulesTest {
         assertThatRule(ASSERTIONS_SHOULD_HAVE_DETAIL_MESSAGE)
                 .checking(new ClassFileImporter().importClasses(ValidAssertions.class))
                 .hasNoViolation();
+    }
+
+    @Test
+    public void DEPRECATED_API_SHOULD_NOT_BE_USED_should_fail_on_call_to_deprecated_method() {
+        class ClassWithDeprecatedMembers {
+            @Deprecated
+            int target;
+
+            @Deprecated
+            ClassWithDeprecatedMembers() {
+            }
+
+            @Deprecated
+            void target() {
+            }
+        }
+        @Deprecated
+        class DeprecatedClass {
+            int target;
+
+            void target() {
+            }
+        }
+        class Origin {
+            void origin() {
+                ClassWithDeprecatedMembers instanceOfClassWithDeprecatedMembers = new ClassWithDeprecatedMembers();
+                instanceOfClassWithDeprecatedMembers.target++;
+                instanceOfClassWithDeprecatedMembers.target();
+                DeprecatedClass instanceOfDeprecatedClass = new DeprecatedClass();
+                instanceOfDeprecatedClass.target++;
+                instanceOfDeprecatedClass.target();
+                Class<?> deprecatedClass = DeprecatedClass.class;
+            }
+        }
+        String innerClassConstructor = CONSTRUCTOR_NAME + "(" + GeneralCodingRulesTest.class.getName() + ")";
+        String violatingMethod = "Method <" + Origin.class.getName() + ".origin()>";
+        assertThatRule(DEPRECATED_API_SHOULD_NOT_BE_USED)
+                .hasDescriptionContaining("no classes should access @Deprecated members or should depend on @Deprecated classes, because there is probably a better alternative")
+                .checking(new ClassFileImporter().importClasses(Origin.class, ClassWithDeprecatedMembers.class, DeprecatedClass.class))
+                .hasViolations(9)
+                .hasViolationMatching(quote(violatingMethod + " calls constructor <" + ClassWithDeprecatedMembers.class.getName() + "." + innerClassConstructor + "> in ") + ".*")
+                .hasViolationMatching(quote(violatingMethod + " calls method <" + ClassWithDeprecatedMembers.class.getName() + ".target()> in ") + ".*")
+                .hasViolationMatching(quote(violatingMethod + " gets field <" + ClassWithDeprecatedMembers.class.getName() + ".target> in ") + ".*")
+                .hasViolationMatching(quote(violatingMethod + " sets field <" + ClassWithDeprecatedMembers.class.getName() + ".target> in ") + ".*")
+                .hasViolationMatching(quote(violatingMethod + " calls constructor <" + DeprecatedClass.class.getName() + "." + innerClassConstructor + "> in ") + ".*")
+                .hasViolationMatching(quote(violatingMethod + " calls method <" + DeprecatedClass.class.getName() + ".target()> in ") + ".*")
+                .hasViolationMatching(quote(violatingMethod + " gets field <" + DeprecatedClass.class.getName() + ".target> in ") + ".*")
+                .hasViolationMatching(quote(violatingMethod + " sets field <" + DeprecatedClass.class.getName() + ".target> in ") + ".*")
+                .hasViolationMatching(quote(violatingMethod + " references class object <" + DeprecatedClass.class.getName() + "> in ") + ".*");
     }
 }
